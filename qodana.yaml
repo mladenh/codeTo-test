@@ -63,3 +63,4 @@ exclude:
       - coverage/lib/index.html
       - coverage/block-navigation.js
       - coverage/lib/almaApiHelpers.ts.html
+      - src/public/data
