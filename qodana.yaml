@@ -1,0 +1,65 @@
+version: "1.0"
+profile:
+  name: qodana.starter
+include:
+  - name: TrivialConditionalJS
+  - name: TsLint
+  - name: UnnecessaryLocalVariableJS
+  - name: ReuseOfLocalVariableJS
+  - name: ThreeNegationsPerFunctionJS
+  - name: FunctionWithMultipleLoopsJS
+  - name: FunctionWithMultipleReturnPointsJS
+  - name: ParametersPerFunctionJS
+  - name: CyclomaticComplexityJS
+  - name: StatementsPerFunctionJS
+  - name: NestingDepthJS
+  - name: DuplicatedCode
+  - name: JSAnnotator
+  - name: InconsistentLineSeparators
+  - name: IncorrectFormatting
+  - name: InjectedReferences
+  - name: JSMethodCanBeStatic
+  - name: ES6ShorthandObjectProperty
+  - name: RedundantSuppression
+  - name: JSCheckFunctionSignatures
+  - name: JSValidateTypes
+  - name: JSUnfilteredForInLoop
+  - name: JSFileReferences
+  - name: JSUnresolvedReference
+  - name: JSJoinVariableDeclarationAndAssignment
+  - name: JSClassNamingConvention
+  - name: FunctionNamingConventionJS
+  - name: ParameterNamingConventionJS
+  - name: LocalVariableNamingConventionJS
+  - name: BlockStatementJS
+  - name: RegExpSimplifiable
+  - name: JSEqualityComparisonWithCoercion.TS
+  - name: TypeScriptExplicitMemberType
+  - name: JSTestFailedLine
+  - name: JSUnusedGlobalSymbols
+  - name: FunctionWithInconsistentReturnsJS
+exclude:
+  - name: All
+    paths:
+      - coverage/api/index.html
+      - coverage/bin/index.html
+      - coverage/lib/version.ts.html
+      - coverage/sorter.js
+      - coverage/lib/error.ts.html
+      - coverage/api/services/index.html
+      - coverage/api/routes/v1-route.ts.html
+      - coverage/index.html
+      - coverage/bin/www.ts.html
+      - coverage/api/services/v1.ts.html
+      - coverage/lib/auditTrail.ts.html
+      - coverage/lib/FileUpload.ts.html
+      - coverage/lib/database.ts.html
+      - coverage/lib/logger.ts.html
+      - coverage/lib/validation.ts.html
+      - coverage/lib/idUtils.ts.html
+      - coverage/api/index.ts.html
+      - coverage/lib/config.ts.html
+      - coverage/api/routes/index.html
+      - coverage/lib/index.html
+      - coverage/block-navigation.js
+      - coverage/lib/almaApiHelpers.ts.html
