@@ -1,0 +1,42 @@
+//  mapping from API field names to database column names
+const fieldMappings: {[key: string]: string} = {
+  profileId: 'unique_profile_id',
+  isil: 'isil',
+  projectCode: 'project_code',
+  fullTextDeposit: 'full_text_deposit',
+  '865mCode': 'subfield_m_code',
+  contactEmails: 'contact_emails',
+  profileAllowedTypes: 'profile_allowed_types',
+  isActive: 'is_active',
+  firstName: 'first_name',
+  lastName: 'last_name',
+  username: 'username',
+  userType: 'user_type',
+  email: 'email',
+  password: 'password',
+  eDocProfiles: 'eDocProfiles',
+  //eDocProfiles: 'p.unique_profile_id', in the query to list users
+  acnr: 'ac_number',
+  profile: 'profile',
+  objectType: 'object_type_name',
+  sequence: 'sequence_number',
+  belongsToAggregate: 'belongs_to_aggregate',
+  label: 'label',
+  fileUrl: 'file_url',
+};
+
+// Convert camelCase to custom - mappings for the db fields
+/**
+ *
+ */
+export function mapRequestDataToDbFields(reqBodyQuery: {[key: string]: any}): {
+  [key: string]: any;
+} {
+  const dbData: {[key: string]: any} = {};
+  Object.keys(reqBodyQuery).forEach((key) => {
+    if (fieldMappings[key]) {
+      dbData[fieldMappings[key]] = reqBodyQuery[key];
+    }
+  });
+  return dbData;
+}

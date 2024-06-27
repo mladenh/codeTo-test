@@ -1,0 +1,5 @@
+Schmid, Erich W.
+Theoretische Physik mit dem Personal-Computer
+
+Theoretische Physik mit dem Personal Computer
+In 16 Aufgaben aus Mechanik, Wellenlehre, Elektro- und Thermodynamik sowie der Quantenmechanik und jeweils gegliedert in �Problemstellung - Numerisches Verfahren -Programmierung - Aufgaben - Ergebnisse" bietet dieses neuartige Lehrbuch einen raschen Einstieg in die PC-Anwendung in der Physik. Die im Buch vorkommenden FORTRAN-77-Programme laufen ohne �nderung auf IBM PC/XT und /AT mit mathematischem Koprozessor, Graphikausr�stung und mindestens 512 K Hauptspeicher. Mit geringf�gigen �nderungen lassen sich die Programme auf andere PCs und Gro�rechenanlagen anpassen.

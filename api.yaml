@@ -1,0 +1,1941 @@
+openapi: '3.0.0'
+info:
+  title: eDoc API
+  contact:
+    name: eDoc Team
+    email: example@example.com #TODO : change this to the real email
+  license:
+    name: MIT License
+  description: eDoc API
+  version: '1.0.0'
+servers:
+  - url: http://localhost #TODO: change this to the real url
+    description: Local server
+tags:
+  - name: Users
+  - name: Objects
+  - name: Reporting
+  - name: Statistics
+  - name: Primo
+paths:
+  # eDoc Profile paths
+  /v1/api/users/eDocProfile:
+    description: Endpoints for managing eDoc profiles, including creation, retrieval, and update. These operations are used for maintaining user profiles, allowing for personalized access and interaction based on user roles and permissions
+
+    post: # Profile creation - restricted to administrators
+      summary: create eDoc profile
+      description: |
+        Creates a new eDoc profile. This operation is restricted to administrators and requires providing a complete profile definition. Ensure all mandatory fields are filled to avoid 'bad request' errors.
+      operationId: createEDocProfile
+      tags:
+        - Users
+      requestBody:
+        description: The eDoc profile data to create, including ISIL, project code, and other relevant information.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/eDocProfile'
+      responses:
+        '201':
+          description: eDoc profile successfully created.
+        '400':
+          description: Bad request - missing fields or invalid information provided. See error response for specifics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFields:
+                  $ref: '#/components/examples/missingFields'
+                invalidISIL:
+                  $ref: '#/components/examples/invalidISIL'
+                invalidProjectCode:
+                  $ref: '#/components/examples/invalidProjectCode'
+                invalid865mCode:
+                  $ref: '#/components/examples/invalid865mCode'
+        '500':
+          description: Internal server error - an unexpected error occurred.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+    get:
+      summary: Retrieve eDoc Profile
+      description: |
+        Retrieves the eDoc profile associated with the authenticated user's ISIL. Users can only access their own profiles unless they have administrative privileges to view others.
+      operationId: getEDocProfile
+      tags:
+        - Users
+      parameters:
+        - $ref: '#/components/parameters/isil'
+      responses:
+        '200':
+          description: eDoc profile retrieval successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/eDocProfile'
+        '403':
+          description: Forbidden - insufficient privileges to access the requested profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/insufficientPrivileges'
+        '404':
+          description: Not Found - the specified eDoc profile does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/eDocProfileNotFound'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  #path for profile update and deletion
+  /v1/api/users/eDocProfile/{isil}:
+    description: Endpoints for updating and deleting eDoc profiles. These operations are restricted to administrators and require the necessary permissions to modify or remove profiles.
+    patch: # Profile update - restricted to administrators
+      summary: update eDoc profile
+      description: |
+        Updates an existing eDoc profile for the authenticated user, including changing the activation status. This operation allows administrators to modify profile details and activate or deactivate their profile.
+      operationId: updateEDocProfile
+      tags:
+        - Users
+      parameters:
+        - $ref: '#/components/parameters/isil'
+      requestBody:
+        description: The updated eDoc profile data. Only fields that need to be updated should be included.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/eDocProfile'
+      responses:
+        '204':
+          description: eDoc profile successfully updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/eDocProfile'
+        '400':
+          description: Bad request - missing or invalid fields in the profile update.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFields:
+                  $ref: '#/components/examples/missingFields'
+
+        '403':
+          description: Forbidden - insufficient privileges to update the profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                insufficientPrivileges:
+                  $ref: '#/components/examples/insufficientPrivileges'
+        '404':
+          description: Not Found - the profile to update does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                edocProfileNotFound:
+                  $ref: '#/components/examples/eDocProfileNotFound'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+
+    delete: # Profile deletion - restricted to administrators
+      summary: delete eDoc profile
+      description: |
+        Deletes an existing eDoc profile identified by ISIL. This operation should be restricted to administrators. It permanently removes the profile and its associated data from the system.
+      operationId: deleteEDocProfile
+      tags:
+        - Users
+      parameters:
+        - $ref: '#/components/parameters/isil'
+      responses:
+        '204':
+          description: eDoc profile successfully deleted.
+        '403':
+          description: Forbidden - insufficient privileges to delete the profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                insufficientPrivileges:
+                  $ref: '#/components/examples/insufficientPrivileges'
+        '404':
+          description: Not Found - the profile to delete does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                edocProfileNotFound:
+                  $ref: '#/components/examples/eDocProfileNotFound'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+
+  #path for listing/searching eDoc profiles
+  /v1/api/users/eDocProfiles:
+    description: Endpoint for listing/searching eDoc profiles.
+    get:
+      summary: List/Search eDoc Profiles
+      description: |
+        Retrieves a list of eDoc profiles based on provided search criteria. This operation can be utilized by administrators. Supports filtering based on profile attributes like ISIL, project code, and status.
+      operationId: listEDocProfiles
+      tags:
+        - Users
+      parameters:
+        - in: query
+          name: filter
+          schema:
+            type: string
+          description: |
+            Filters the list of eDoc profiles based on the provided search criteria. Supports filtering based on profile attributes like ISIL, project code, and status and wild cards.
+      responses:
+        '200':
+          description: A list of eDoc profiles matching the search criteria.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/eDocProfile'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+
+  #path for user registration - only for administrators
+  /v1/api/users/register:
+    description: Endpoint for user registration, accessible only to administrators.
+    post:
+      summary: Register User
+      description: |
+        Registers a new user with the required properties. This endpoint is restricted to administrators to ensure controlled access to the eDoc. All fields in the User schema are required to create a user account, including a valid email address and a strong password.
+      operationId: registerUser
+      tags:
+        - Users
+      requestBody:
+        description: The user properties required for registration.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '201':
+          description: User successfully registered.
+        '400':
+          description: Bad request - missing or invalid fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFields:
+                  $ref: '#/components/examples/missingFields'
+                invalidEmail:
+                  $ref: '#/components/examples/invalidEmail'
+                invalidPassword: # do we need this ???
+                  $ref: '#/components/examples/invalidPassword'
+                invalidFirstName:
+                  $ref: '#/components/examples/invalidFirstName'
+                invalidLastName:
+                  $ref: '#/components/examples/invalidLastName'
+                invalidUsername:
+                  $ref: '#/components/examples/invalidUsername'
+                emailAlreadyExists:
+                  $ref: '#/components/examples/emailAlreadyExists'
+
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+
+  #path for user login
+  /v1/api/users/login:
+    description: Endpoint for user login.
+    post:
+      summary: Login user
+      description: |
+        Authenticates a user and returns a session token. The login requires a valid email and password.
+      operationId: loginUser
+      tags:
+        - Users
+      requestBody:
+        description: The user properties required for login
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+      responses:
+        '201':
+          description: User successfully logged in.
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFields:
+                  $ref: '#/components/examples/missingFields'
+                invalidEmail:
+                  $ref: '#/components/examples/invalidEmail'
+                invalidPassword:
+                  $ref: '#/components/examples/invalidPassword'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+
+  #path for user profile update and delete
+  /v1/api/users/{username}:
+    description: Endpoint for user profile update and delete.
+    patch:
+      summary: Update user information
+      description: Updates the information of an existing user. This endpoint allows users to update their own profile information.
+      operationId: updateUser
+      tags:
+        - Users
+      parameters:
+        - $ref: '#/components/parameters/username'
+      requestBody:
+        description: The properties of the user to update. Include only fields that need to be updated
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        '204':
+          description: User information successfully updated
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/missingFields'
+        '403':
+          description: Forbidden - Insufficient privileges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/insufficientPrivileges'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/userNotFound'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+    delete:
+      summary: Delete user
+      description: Deletes an existing user.
+      operationId: deleteUser
+      tags:
+        - Users
+      parameters:
+        - $ref: '#/components/parameters/username'
+      responses:
+        '204':
+          description: User successfully deleted
+        '403':
+          description: Forbidden - Insufficient privileges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/insufficientPrivileges'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/userNotFound'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  #path for user profile retrieval
+  /v1/api/users/{username}/profile:
+    get:
+      summary: Get User Profile
+      description: |
+        Retrieves the profile information for a specified user. This endpoint is accessible to the user themselves or an administrator.
+      operationId: getUser
+      tags:
+        - Users
+      parameters:
+        - $ref: '#/components/parameters/username'
+      responses:
+        '200':
+          description: User profile retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Forbidden - Insufficient privileges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/insufficientPrivileges'
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/userNotFound'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  #path for listing/searching users
+  /v1/api/users:
+    get:
+      summary: List All Users
+      description: |
+        Retrieves a list of users based on provided search criteria. This operation is intended for administrators. Supports filtering based on user attributes like username, user type, and email.
+      operationId: listUsers
+      tags:
+        - Users
+      parameters:
+        - in: query
+          name: filter
+          schema:
+            type: string
+          description: |
+            Filters the list of users based on the provided search criteria. Supports filtering based on user attributes like username, user type, email and wild cards.
+      responses:
+        '200':
+          description: A list of users matching the search criteria.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  #path for objects creation, search and deletion by acnr
+  /v1/api/catalog/objects:
+    description: This endpoint allows the creation of new objects in the eDoc database, as well as the search for objects in the database.
+    post:
+      summary: create object
+      description: |
+        Creates a new object in the database with the specified properties. This operation requires all necessary object data, including ACNR, profile, sequence, object type, and file information.
+      operationId: createObject
+      tags:
+        - Objects
+      requestBody:
+        description: The object data to create, including file upload or file URL.
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ObjectCreation'
+      responses:
+        '201':
+          description: Object created successfully.
+        '400':
+          description: Bad request - missing or invalid fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFields:
+                  $ref: '#/components/examples/missingFields'
+                invalidTypeFileCombination:
+                  $ref: '#/components/examples/invalidTypeFileCombination'
+                invalidFileFormat:
+                  $ref: '#/components/examples/invalidFileFormat'
+                invalidUrl:
+                  $ref: '#/components/examples/invalidUrl'
+                invalidAcnr:
+                  $ref: '#/components/examples/invalidAcnr'
+                invalidOwner:
+                  $ref: '#/components/examples/invalidProfile'
+                invalidTypeOwnerCombination:
+                  $ref: '#/components/examples/invalidTypeProfileCombination'
+                conflictOwner:
+                  $ref: '#/components/examples/conflictProfile'
+                objectAlreadyExists:
+                  $ref: '#/components/examples/objectAlreadyExists'
+        '403':
+          description: Forbidden - Insufficient privileges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                insufficientPrivileges:
+                  $ref: '#/components/examples/insufficientPrivileges'
+
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+
+    get: # this method can be used without login
+      summary: search for objects
+      description: |
+        Searches for objects in the database using various criteria such as ACNR, profile, modifier, sequence, object type, and file extension. Supports sorting, pagination, and filtering.
+      operationId: searchObjects
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/searchQuery'
+
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                description: Search completed successfully. Returns a list of objects matching the criteria.
+                items:
+                  $ref: '#/components/schemas/Object'
+              example:
+                - id: 1
+                  acnr: AC00016679
+                  profile: tuw
+                  modifier: n
+                  sequence: '01'
+                  object_type: Inhaltsverzeichnis
+                  file_extension: pdf
+                  size: 123456
+                  create_date: 2021-01-01T00:00:00.000Z
+                  update_date: 2021-01-01T00:00:00.000Z
+                  data: 'null'
+                  belongs_to_aggregate: false
+                  label: '1984.02'
+
+        '400':
+          description: Bad request - invalid search parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidParameters:
+                  $ref: '#/components/examples/invalidParameters'
+
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+    delete:
+      summary: Delete Objects by AC Number
+      description: |
+        Deletes all objects associated with a given AC number from the database. Requires confirmation to proceed with deletion. This operation should be used with caution to prevent unintended data loss.
+      operationId: deleteObjects
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/acnrQuery'
+        - $ref: '#/components/parameters/confirm'
+      responses:
+        '200':
+          description: Objects deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Object'
+        '400':
+          description: Bad request - invalid ACNR or missing confirmation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  #path for objects update, retrieval and deletion
+  /v1/api/catalog/{acnr}/objects/{profile}/{modifier}/{sequence}/{object_type}/{file_extension}:
+    description: the objects endpoint
+    get:
+      summary: Get Object
+      description: |
+        Retrieve Object
+      operationId: getObject
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/acnr'
+        - $ref: '#/components/parameters/profile'
+        - $ref: '#/components/parameters/modifier'
+        - $ref: '#/components/parameters/sequence'
+        - $ref: '#/components/parameters/object_type'
+        - $ref: '#/components/parameters/file_extension'
+      responses:
+        '200':
+          description: Object retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Object'
+        '404':
+          description: object not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/objectNotFound'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+    patch:
+      summary: Update Object
+      description: |
+        Updates an existing object in the database. This operation allows for modifying object properties and replacing the file if necessary.
+      operationId: updateObject
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/acnr'
+        - $ref: '#/components/parameters/profile'
+        - $ref: '#/components/parameters/modifier'
+        - $ref: '#/components/parameters/sequence'
+        - $ref: '#/components/parameters/object_type'
+        - $ref: '#/components/parameters/file_extension'
+      requestBody:
+        description: All object properties to update
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                acnr:
+                  type: string
+                  description: the ACNR of the object
+                  example: AC00016679
+                profile:
+                  type: string
+                  description: the profile of the object
+                  example: tuw
+                modifier:
+                  type: string
+                  description: the modifier of the object
+                  example: x
+                  enum:
+                    - x
+                sequence:
+                  type: string
+                  description: the sequence of the object
+                  example: '01'
+                object_type:
+                  type: string
+                  description: the type of the object
+                  example: in
+                file_extension:
+                  type: string
+                  description: the file extension of the object
+                  example: pdf
+                file:
+                  oneOf: # file to upload or url of the file for remote indexing
+                    - type: string
+                      format: binary
+                      description: the file to upload
+                      example: file.pdf
+                    - type: string
+                      format: url
+                      description: the url of the file to upload
+                      example: https://www.tuwien.ac.at/file.pdf
+      responses:
+        '204':
+          description: Object updated successfully.
+        '400':
+          description: Bad request - missing or invalid fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFields:
+                  $ref: '#/components/examples/missingFields'
+                invalidFileFormat:
+                  $ref: '#/components/examples/invalidFileFormat'
+                invalidUrl:
+                  $ref: '#/components/examples/invalidUrl'
+                invalidAcnr:
+                  $ref: '#/components/examples/invalidAcnr'
+                invalidOwner:
+                  $ref: '#/components/examples/invalidProfile'
+                invalidTypeOwnerCombination:
+                  $ref: '#/components/examples/invalidTypeProfileCombination'
+                conflictOwner:
+                  $ref: '#/components/examples/conflictProfile'
+                objectNotFound:
+                  $ref: '#/components/examples/objectNotFound'
+        '403':
+          description: Forbidden - insufficient privileges.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                insufficientPrivileges:
+                  $ref: '#/components/examples/insufficientPrivileges'
+        '404':
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                objectNotFound:
+                  $ref: '#/components/examples/objectNotFound'
+
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+    delete:
+      summary: delete object
+      description: |
+        Permanently deletes an object from the database. This operation requires confirmation via the 'confirm' query parameter to prevent accidental deletions.
+      operationId: deleteObject
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/acnr'
+        - $ref: '#/components/parameters/profile'
+        - $ref: '#/components/parameters/modifier'
+        - $ref: '#/components/parameters/sequence'
+        - $ref: '#/components/parameters/object_type'
+        - $ref: '#/components/parameters/file_extension'
+        - $ref: '#/components/parameters/confirm'
+
+      responses:
+        '200':
+          description: Object deleted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Object'
+        '404':
+          description: object not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/objectNotFound'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  #path for direct delivery of Objects
+  /v1/api/catalog/direct-delivery:
+    get:
+      description: |
+        Retrieve objects for direct delivery to users based on AC number, object type, and sequence number. This endpoint facilitates the immediate access to specific objects, streamlining the delivery process for end-users.
+      operationId: directDelivery
+      tags:
+        - Objects
+      parameters:
+        - name: acnr
+          in: query
+          description: AC Number identifying the object.
+          required: true
+          schema:
+            type: string
+        - name: object_type
+          in: query
+          description: Type of the object to be delivered.
+          required: true
+          schema:
+            type: string
+        - name: sequence
+          in: query
+          description: Sequence number of the object, determining its order among multiple objects associated with the same AC number.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object retrieved successfully for direct delivery.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Object'
+        '404':
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/objectNotFound'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  #path for full text cache operations
+  /v1/api/catalog/{acnr}/objects/{profile}/{modifier}/{sequence}/full-text-cache:
+    post:
+      summary: create full text cache
+      description: |
+        Creates a new full text cache for the specified object. This operation requires the necessary permissions and the provision of all required data related to the object.
+      operationId: createFullTextCache
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/acnr'
+        - $ref: '#/components/parameters/profile'
+        - $ref: '#/components/parameters/sequence'
+        - $ref: '#/components/parameters/modifier'
+      requestBody:
+        description: Data required to create the full text cache.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FullTextCache'
+      responses:
+        '201':
+          description: Cache created successfully
+        '400':
+          description: Bad request - missing or invalid fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFields:
+                  $ref: '#/components/examples/missingFields'
+        '403':
+          description: Forbidden - Insufficient privileges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                insufficientPrivileges:
+                  $ref: '#/components/examples/insufficientPrivileges'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+    get:
+      summary: Access to full text cache
+      description: |
+        Retrieves the full text cache for the specified object. This operation checks for the existence of the full text cache and returns it if available.
+      operationId: getFullTextCache
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/acnr'
+        - $ref: '#/components/parameters/profile'
+        - $ref: '#/components/parameters/modifier'
+        - $ref: '#/components/parameters/sequence'
+      responses:
+        '200':
+          description: Full text cache retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FullTextCache'
+        '404':
+          description: Cache or object not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/objectNotFound'
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+
+    patch:
+      summary: Rebuild full text cache
+      description: |
+        Rebuilds or updates the full text cache for the specified object. This is necessary when the object's content has changed, ensuring the cache reflects the most current data.
+      operationId: rebuildFullTextCache
+      tags:
+        - Objects
+      parameters:
+        - $ref: '#/components/parameters/acnr'
+        - $ref: '#/components/parameters/profile'
+        - $ref: '#/components/parameters/modifier'
+        - $ref: '#/components/parameters/sequence'
+      requestBody:
+        description: Data required to rebuild or update the full text cache.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FullTextCache'
+      responses:
+        '204':
+          description: Full text cache rebuilt or updated successfully.
+        '400':
+          description: Bad request - missing or invalid fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingFields:
+                  $ref: '#/components/examples/missingFields'
+        '403':
+          description: Forbidden - Insufficient privileges
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                insufficientPrivileges:
+                  $ref: '#/components/examples/insufficientPrivileges'
+        '404':
+          description: Cache or object not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                objectNotFound:
+                  $ref: '#/components/examples/objectNotFound'
+        '500':
+          description: internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internalServerError:
+                  $ref: '#/components/examples/internalServerError'
+
+  # path for extending PNX with full text
+  /v1/api/catalog/pnx-fulltext:
+    post:
+      summary: Extend PNX Record with Full Text
+      description: |
+        Retrieves full text data for a given set of criteria and extends the corresponding PNX record. This endpoint is designed for integrating full text data into PNX records.
+      operationId: extendPNXWithFullText
+      tags:
+        - Primo
+      requestBody:
+        description: Criteria to retrieve the full text data for extending PNX records.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                acnr:
+                  type: string
+                  description: AC Number identifying the object for which full text is retrieved.
+                object_type:
+                  type: string
+                  description: Type of object , specifically 'full text'.
+                  enum:
+                    - full text
+                sequence:
+                  type: string
+                  description: Sequence number, for identifying the object.
+              required:
+                - acnr
+                - object_type
+      responses:
+        '200':
+          description: PNX record successfully extended with full text data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExtendedPNX'
+        '400':
+          description: Bad request - missing or invalid fields in the request.
+        '404':
+          description: Full text data not found for the specified criteria.
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  #path for reporting
+  /v1/api/reports/user:
+    get:
+      summary: Generate user report
+      description: Generates a report for a specific user, detailing their activities and interactions with the eDoc.
+      operationId: generateUserReport
+      tags:
+        - Reporting
+      parameters:
+        - $ref: '#/components/parameters/userIdQuery'
+        - $ref: '#/components/parameters/timeRangeQuery'
+        - $ref: '#/components/parameters/activityTypeQuery'
+      responses:
+        '200':
+          description: Report successfully generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+        '400':
+          description: Bad request - Invalid parameters.
+        '404':
+          description: User not found.
+        '403':
+          description: Forbidden - Insufficient privileges.
+        '500':
+          description: Internal server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  #path for statistics
+  /v1/api/statistics/contributions:
+    get:
+      summary: Retrieve statistics of profile contributions
+      description: |
+        Retrieve statistics on the types of content contributed by profiles, with options to filter by time range and content types.
+      operationId: getContributionsStats
+      tags:
+        - Statistics
+      parameters:
+        - name: profileId
+          in: query
+          description: ID of the profile
+          required: true
+          schema:
+            type: string
+        - name: timeRange
+          in: query
+          description: Time range for the statistics (e.g., 'total' or 'lastMonth')
+          required: true
+          schema:
+            type: string
+            enum:
+              - total
+              - lastMonth
+        - name: objectType
+          in: query
+          description: Specific object type to filter the statistics
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContributionStats'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+  /v1/api/statistics/web-access:
+    get:
+      summary: Retrieve statistics of web accesses based on profile
+      description: Retrieve statistics of web accesses to objects in the eDoc, filtered by the profile.
+      operationId: getWebAccessesStats
+      tags:
+        - Statistics
+      parameters:
+        - name: profileId
+          in: query
+          description: The profile to filter the statistics by.
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebAccessesStats'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                $ref: '#/components/examples/internalServerError'
+
+components:
+  schemas:
+    eDocProfile:
+      type: object
+      description: An eDoc profile for an Institution
+      properties:
+        ISIL:
+          type: string
+          description: the ISIL of the Institution
+          example: AT-OBVSG
+        project_code: #optional
+          type: string
+          description: the project code
+          default: OBV-EDOC
+        fullTextDeposit:
+          type: boolean
+          description: Indicates whether full text deposit is allowed
+          default: false
+        865mCode: #optional
+          type: string
+          description: the 865 subfield m code of the user
+          default: 'AT-OBV'
+        contactEmails:
+          type: array
+          description: One or more contact email addresses
+          items:
+            type: string
+        profileAllowedTypes:
+          type: array
+          description: Permitted object types for the institution
+          items:
+            type: string
+        isActive:
+          type: boolean
+          description: Indicates whether the profile is active
+          default: true
+      required:
+        - ISIL
+        - fullTextDeposit
+        - contactEmails
+        - profileAllowedTypes
+        - isActive
+
+    User:
+      type: object
+      description: User details
+      properties:
+        id:
+          type: integer
+          description: The ID of the user
+        first_name:
+          type: string
+          description: The first name of the user
+          example: user
+        last_name:
+          type: string
+          description: The last name of the user
+          example: name
+        username:
+          type: string
+          description: The username of the user
+          example: user
+        user_type:
+          type: string
+          description: The type of the user (admin, user, etc.)
+          example: admin
+        email:
+          type: string
+          description: The email of the user
+          example: user@user.com
+        password: #remove ???
+          type: string
+          description: The password of the user (hashed and salted)
+          example: password
+        eDocProfile: #Reference to the eDocProfile component
+          $ref: '#/components/schemas/eDocProfile'
+      required:
+        - id
+        - first_name
+        - last_name
+        - username
+        - user_type
+        - email
+        - password
+        - eDocProfile
+
+    UserLogin:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    ObjectCreation:
+      type: object
+      properties:
+        acnr: #1
+          type: string
+          description: the acnr of the object
+          example: AC00016679
+          pattern: ^AC[0-9]{8}$
+        profile:
+          type: string
+          description: creator of the object
+          example: tuw
+          enum:
+            - akw
+            - bok
+            - lbo
+            - mul
+            - tuw
+            - ubg
+            - ubi
+            - wuw
+            - zbm
+            - xth
+            - xsc
+            - xuf
+        modifier: #TODO: check if we need this -> or modifier should be auto generated
+          type: string
+          description: the modifier of the object
+          example: n
+          enum:
+            - n
+        sequence:
+          type: number
+          description: the sequence of the object
+          example: 01
+        object_type:
+          type: string
+          description: the type of the object
+          example: Inhaltsverzeichnis
+          enum:
+            - Inhaltsverzeichnis
+            - Klappentext
+            - Umschlagbild
+            - Bild
+            - Volltext (an der OBVSG gehostet)
+            - Aggregat-Satz Inhaltsverzeichnisse
+            - Aggregat-Satz Volltexte
+        file_extension:
+          type: string
+          description: the file extension of the object
+          example: pdf
+          enum:
+            - txt
+            - pdf
+            - htm
+            - jpg
+            - png
+        label:
+          type: string
+          description: a label for the object
+          example: Jahresinhaltsverzeichnis 2005
+        file:
+          oneOf: # file to upload or url of the file for remote indexing
+            - type: string
+              format: binary
+              description: the file to upload
+              maximum: 209715200 # 200MB size limit  in bytes (200 * 1024 * 1024)
+              pattern: "^[a-zA-Z0-9]+\\.[a-zA-Z0-9]+$" #alphanumeric characters and dots only
+            - type: string
+              format: url #TODO: check if this is the correct format, in handbuch it is txt
+              description: the url of the file to upload
+              example: https://www.tuwien.ac.at/file.pdf
+      anyOf: #limiting the possible combinations
+        - properties:
+            object_type:
+              enum:
+                - Inhaltsverzeichnis
+                - Klappentext
+            file_extension:
+              enum:
+                - txt
+                - pdf
+          required:
+            - object_type
+            - file_extension
+          example:
+            object_type: Inhaltsverzeichnis
+            file_extension: pdf
+
+        - properties:
+            object_type:
+              enum:
+                - Umschlagbild
+                - Bild
+            file_extension:
+              enum:
+                - jpg
+                - png
+          required:
+            - object_type
+            - file_extension
+          example:
+            object_type: Umschlagbild
+            file_extension: jpg
+        - properties:
+            object_type:
+              enum:
+                - Aggregat-Satz Inhaltsverzeichnisse
+                - Aggregat-Satz Volltexte
+            file_extension:
+              enum:
+                - htm
+          required:
+            - object_type
+            - file_extension
+          example:
+            object_type: Aggregat-Satz Inhaltsverzeichnisse
+            file_extension: htm
+        - properties:
+            object_type:
+              enum:
+                - Volltext (an der OBVSG gehostet)
+            file_extension:
+              enum:
+                - txt
+          required:
+            - object_type
+            - file_extension
+          example:
+            object_type: Volltext (an der OBVSG gehostet)
+            file_extension: txt
+
+    Object:
+      type: object
+      description: a object
+      properties:
+        id:
+          type: integer
+          description: The ID of the object
+        acnr:
+          type: string
+          description: the acnr of the object
+          example: AC00016679
+        profile:
+          type: string
+          description: the creator of the object
+          example: tuw
+        modifier:
+          type: string
+          description: the modifier of the object
+          example: n
+        sequence:
+          type: string
+          description: the sequence of the object
+          example: '01'
+        object_type:
+          type: string
+          description: the type of the object (Inhaltsverzeichnis, Abstract, Auszug, Zusammenfassung, Rezension, Klappentext, Umschlagbild, Titelseite, Volltext, Bild, ...)
+          example: Inhaltsverzeichnis
+        file_extension:
+          type: string
+          description: the file extension of the object
+          example: pdf
+        size:
+          type: integer
+          description: The size of the object
+        create_date:
+          type: string
+          format: date-time
+          description: The creation date of the object
+        update_date:
+          type: string
+          format: date-time
+          description: The last update date of the object
+        data:
+          type: string
+          description: The data of the object
+        belongs_to_aggregate:
+          type: boolean
+          description: Flag indicating whether the object should be displayed as an aggregate
+          example: false
+        label:
+          type: string
+          description: Label for the aggregate
+          example: '1984.02'
+
+    FullTextCache:
+      type: object
+      description: Cache data associated with an eDoc full text object.
+      properties:
+        id:
+          type: integer
+          description: The ID of the full text object
+        timestamp:
+          type: string
+          format: date-time
+          description: The timestamp indicating when the cache was created / last updated
+        data:
+          type: string # is this a binary string? base64-encoded version?
+          description: The cached data of the full text.
+      required:
+        - id
+        - data
+        - timestamp
+
+    ExtendedPNX:
+      type: object
+      properties:
+        acnr:
+          type: string
+          description: The AC number of the object
+        type:
+          type: string
+          description: The type of the object (TOC, fulltext)
+        bibRecordLink:
+          type: string
+          description: Link to the updated bib record in Alma, which includes the eDOC link (in 856 field).
+        fullTextCacheStatus:
+          type: string
+          description: Status of the full text cache (created, updated, not found)
+        primoIntegrationStatus:
+          type: string
+          description: Status of the primo integration (awaiting processing in the next Piperun or has been successfully integrated)
+        primoXref:
+          type: string
+          description: XREF -  the link between the Primo dataset and the AC Number. Contains detailing the linkage between the Primo dataset and the AC Number, along with the object type.
+        lastUpdate:
+          type: string
+          format: date-time
+          description: The timestamp of the last update or processing time of the object.
+      required:
+        - acnr
+        - type
+        - bibRecordLink
+        - fullTextCacheStatus
+
+    Report:
+      type: object
+      description: a report
+      properties:
+        report:
+          type: object
+          description: The report
+          properties:
+            userId:
+              type: integer
+              description: The ID of the user
+            activities:
+              type: array
+              description: The activities of the user
+              items:
+                type: object
+                properties:
+                  activityType:
+                    type: string
+                    description: The type of the activity
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: The timestamp of the activity
+                  details:
+                    type: string
+                    description: The details of the activity
+
+    ContributionStats:
+      type: object
+      description: Statistics about contributions made by or available to an institution.
+      properties:
+        profileId:
+          type: string
+          description: Identifier for the institution these statistics relate to.
+        totalContributions:
+          type: integer
+          description: Total number of contributions made by the institution.
+        objectTypeStats:
+          type: array
+          description: Statistics broken down by object types.
+          items:
+            $ref: '#/components/schemas/ObjectTypeStats'
+        usageStats:
+          type: array
+          description: Statistics on how contributions are being used by other institutions.
+          items:
+            $ref: '#/components/schemas/UsageStats'
+        recentContributions:
+          type: integer
+          description: Number of contributions made in the past month.
+      required:
+        - institutionId
+        - totalContributions
+        - objectTypeStats
+        - usageStats
+        - recentContributions
+
+    ObjectTypeStats:
+      type: object
+      properties:
+        objectType:
+          type: string
+          description: Object type.
+        count:
+          type: integer
+          description: Number of objects of the type.
+
+    UsageStats:
+      type: object
+      properties:
+        usageType:
+          type: string
+          description: Usage type (modification, read, download, etc).
+        count:
+          type: integer
+          description: count of usage
+
+    WebAccessesStats:
+      type: object
+      description: Statistics about web accesses
+      properties:
+        profileId:
+          type: string
+          description: Identifier for the institution these statistics relate to.
+        totalWebAccesses:
+          type: integer
+          description: Total number of web accesses.
+        uniqueVisitors:
+          type: integer
+          description: Number of unique visitors.
+        accessesByObjectType:
+          type: array
+          description: Statistics broken down by object types.
+          items:
+            $ref: '#/components/schemas/ObjectTypeStats'
+        accessesOverTime:
+          type: array
+          description: Number of accesses over a specified time period.
+          items:
+            $ref: '#/components/schemas/AccessOverTime'
+
+    AccessOverTime:
+      type: object
+      properties:
+        period:
+          type: string
+          format: date
+          description: Time period for the access count.
+        count:
+          type: integer
+          description: The number of accesses during the period.
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+              description: The error code
+            message:
+              type: string
+              description: A human-readable error message
+
+  examples:
+    missingFields:
+      value:
+        message: Some required fields are missing.
+        code: MISSING_FIELDS
+    invalidISIL:
+      value:
+        message: Invalid ISIL.
+        code: INVALID_ISIL
+    invalidProjectCode:
+      value:
+        message: Invalid project code.
+        code: INVALID_PROJECT_CODE
+    invalid865mCode:
+      value:
+        message: Invalid 865 m code.
+        code: INVALID_865M_CODE
+    insufficientPrivileges:
+      value:
+        message: Insufficient privileges.
+        code: INSUFFICIENT_PRIVILEGES
+    eDocProfileNotFound:
+      value:
+        message: eDoc profile not found.
+        code: EDOC_PROFILE_NOT_FOUND
+    invalidEmail:
+      value:
+        message: Invalid email.
+        code: INVALID_EMAIL
+    invalidPassword:
+      value:
+        message: Invalid password.
+        code: INVALID_PASSWORD
+    invalidFirstName:
+      value:
+        message: Invalid first name.
+        code: INVALID_FIRST_NAME
+    invalidLastName:
+      value:
+        message: Invalid last name.
+        code: INVALID_LAST_NAME
+    invalidUsername:
+      value:
+        message: Invalid username.
+        code: INVALID_USERNAME
+    emailAlreadyExists:
+      value:
+        message: Email already exists.
+        code: EMAIL_ALREADY_EXISTS
+    invalidFileFormat:
+      value:
+        message: Invalid file format. Supported formats are txt, pdf, htm, jpg, and png.
+        code: INVALID_FILE_FORMAT
+    invalidUrl:
+      value:
+        message: Invalid URL.
+        code: INVALID_URL
+    invalidAcnr:
+      value:
+        message: Invalid acnr.
+        code: INVALID_ACNR
+    invalidProfile:
+      value:
+        message: Invalid profile.
+        code: INVALID_PROFILE
+    invalidTypeProfileCombination:
+      value:
+        message: Invalid combination of object_type and profile.
+        code: INVALID_TYPE_PROFILE_COMBINATION
+    conflictProfile:
+      value:
+        message: Profile already exists.
+        code: PROFILE_ALREADY_EXISTS
+    objectNotFound:
+      value:
+        message: Object not found.
+        code: OBJECT_NOT_FOUND
+    internalServerError:
+      value:
+        message: Internal server error.
+        code: INTERNAL_SERVER_ERROR
+    invalidTypeFileCombination:
+      value:
+        message: Invalid combination of object_type and file_extension.
+        code: INVALID_TYPE_FILE_COMBINATION
+    userNotFound:
+      value:
+        message: User not found.
+        code: USER_NOT_FOUND
+    objectAlreadyExists:
+      value:
+        message: Object the same object type and sequence number already exists.
+        code: OBJECT_ALREADY_EXISTS
+    invalidParameters:
+      value:
+        message: Invalid search parameters.
+        code: INVALID_PARAMETERS
+
+  parameters:
+    userId:
+      name: userId
+      in: path
+      description: the id of the user
+      required: true
+      schema:
+        type: integer
+    username:
+      name: username
+      in: path
+      description: the username of the user
+      required: true
+      schema:
+        type: string
+    userIdQuery:
+      name: userIdQuery
+      in: query
+      description: the userId of the user
+      required: true
+      schema:
+        type: integer
+        example: 1
+    isilQuery:
+      name: ISIL
+      in: query
+      description: the ISIL of the profile
+      required: true
+      schema:
+        type: string
+        example: AT-OBVSG
+    isil:
+      name: isil
+      in: path
+      description: the ISIL of the profile
+      required: true
+      schema:
+        type: string
+        example: AT-OBVSG
+
+    acnr:
+      name: acnr
+      in: path
+      description: the acnr of the object
+      required: true
+      schema:
+        type: string
+        example: AC00016679
+    profile:
+      name: profile
+      in: path
+      description: creator of the object
+      required: true
+      schema:
+        type: string
+        example: tuw
+    modifier:
+      name: modifier
+      in: path
+      description: the modifier of the object
+      required: true
+      schema:
+        type: string
+        example: n
+    sequence:
+      name: sequence
+      in: path
+      description: the sequence of the object
+      required: true
+      schema:
+        type: string
+        example: '01'
+    object_type:
+      name: object_type
+      in: path
+      description: the type of the object
+      required: true
+      schema:
+        type: string
+        example: in
+    file_extension:
+      name: file_extension
+      in: path
+      description: the file extension of the object
+      required: true
+      schema:
+        type: string
+        example: pdf
+    confirm:
+      name: confirm
+      in: query
+      description: confirm the deletion
+      required: true
+      schema:
+        type: boolean
+        example: true
+    acnrQuery:
+      name: acnr
+      in: query
+      description: the acnr of the object
+      schema:
+        type: string
+        example: AC00016679
+    timeRangeQuery:
+      name: timeRange
+      in: query
+      description: the time range of the report
+      schema:
+        type: string
+        example: 2022-01-01T00:00:00Z/2022-01-01T23:59:59Z
+    activityTypeQuery:
+      name: activityType
+      in: query
+      description: the activity type of the report
+      schema:
+        type: string
+        example: upload
+    searchQuery:
+      name: query
+      description: the query to search for in the database
+      in: query
+      required: false
+      schema:
+        type: object
+        description: a object query
+        required:
+          - acnr
+        properties:
+          acnr:
+            type: string
+            description: the acnr of the object
+            example: AC00016679
+          profile:
+            type: string
+            description: the creator of the object
+            example: tuw
+          modifier:
+            type: string
+            description: the modifier of the object
+            example: n
+          sequence:
+            type: string
+            description: the sequence of the object
+            example: '01'
+          object_type:
+            type: string
+            description: the type of the object (Inhaltsverzeichnis, Abstract, Auszug, Zusammenfassung, Rezension, Klappentext, Umschlagbild, Titelseite, Volltext, Bild, ...)
+            example: Inhaltsverzeichnis
+          file_extension:
+            type: string
+            description: the file extension of the object
+            example: pdf
+          sortBy:
+            type: string
+            description: The field to sort the objects by.
+            enum:
+              - acnr
+              - object_type
+              - profile
+          sortOrder:
+            type: string
+            description: The sort order for the objects.
+            enum:
+              - asc
+              - desc
+          limit:
+            type: integer
+            description: the maximum number of objects to return
+            example: 10
+          page:
+            type: integer
+            description: the page number
+            example: 1

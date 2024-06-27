@@ -1,0 +1,5 @@
+  {
+    "extends": [
+      "@obvsg/eslint-config"
+    ]
+  }

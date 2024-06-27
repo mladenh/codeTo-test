@@ -1,0 +1,15 @@
+{
+  "api": {
+    "port": 3010
+  },
+  "db": {
+    "host": "localhost",
+    "user": "root",
+    "password": "root",
+    "database": "edoc2",
+    "connectionLimit": 5
+  },
+  "alma": {
+    "apiKey": "l8xx4b5d73f604b243a3b963377c089225f3"
+  }
+}

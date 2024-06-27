@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="jest tests" tests="6" failures="1" errors="0" time="2.713">
+  <testsuite name="try all errors" errors="0" failures="1" skipped="0" timestamp="2024-05-15T15:09:36" time="2.019" tests="4">
+    <testcase classname="try all errors ServerError werfen" name="try all errors ServerError werfen" time="0.006">
+    </testcase>
+    <testcase classname="try all errors PermanentError werfen" name="try all errors PermanentError werfen" time="0.001">
+    </testcase>
+    <testcase classname="try all errors TransientError werfen" name="try all errors TransientError werfen" time="0.001">
+    </testcase>
+    <testcase classname="try all errors RequestError werfen" name="try all errors RequestError werfen" time="0.014">
+      <failure>Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: &quot;WEBHOOK001&quot;
+Received: &quot;SERVICE001&quot;
+    at Object.&lt;anonymous&gt; (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/src/lib/error.spec.ts:49:24)
+    at Promise.then.completed (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-circus/build/utils.js:290:26)
+    at new Promise (&lt;anonymous&gt;)
+    at callAsyncCircusFn (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-circus/build/utils.js:231:10)
+    at _callCircusTest (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-circus/build/run.js:316:40)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at _runTest (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-circus/build/run.js:252:3)
+    at _runTestsForDescribeBlock (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-circus/build/run.js:126:9)
+    at _runTestsForDescribeBlock (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-circus/build/run.js:121:9)
+    at run (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-circus/build/run.js:71:3)
+    at runAndTransformResultsToJestFormat (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapterInit.js:122:21)
+    at jestAdapter (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-circus/build/legacy-code-todo-rewrite/jestAdapter.js:79:19)
+    at runTestInternal (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-runner/build/runTest.js:367:16)
+    at runTest (/home/mladen/Dokumente/10-19_Projects/edocapi-implementation/node_modules/jest-runner/build/runTest.js:444:34)</failure>
+    </testcase>
+  </testsuite>
+  <testsuite name="winston basic logger" errors="0" failures="0" skipped="0" timestamp="2024-05-15T15:09:38" time="0.144" tests="1">
+    <testcase classname="winston basic logger most basic" name="winston basic logger most basic" time="0.009">
+    </testcase>
+  </testsuite>
+  <testsuite name="undefined" errors="0" failures="0" skipped="0" timestamp="2024-05-15T15:09:38" time="0.051" tests="1">
+    <testcase classname=" Test version, MUSS funktionieren" name=" Test version, MUSS funktionieren" time="0.001">
+    </testcase>
+  </testsuite>
+</testsuites>
