@@ -1,3 +1,4 @@
+import type {components, operations} from '../../../types.d.ts';
 import {Router, Request, Response} from 'express';
 import * as v1 from '../services/v1';
 import {logger} from '../../lib/logger';
@@ -21,10 +22,10 @@ import {
   validateRetrieveMetaData,
   validateTransformPatchObjectMatadata,
   validateDeleteObject,
+  validateObjectPut,
 } from '../../lib/middleware';
 import {upload} from '../../lib/FileUpload';
-import fs from 'fs';
-import {RequestError, TransientError, ServerError} from '../../lib/error';
+import {TransientError, ServerError} from '../../lib/error';
 export const v1Router = Router();
 
 /**
@@ -38,10 +39,13 @@ v1Router.post(
   validateAndTransformEDocProfile,
   async (req: Request, res: Response, next: Function) => {
     try {
+      const profileData =
+        req.body as operations['createEDocProfile']['requestBody']['content']['application/json'];
       const result = await v1.createEDocProfile({
-        body: req.body,
+        body: profileData,
       });
-      /*       logAuditTrail({
+      /*
+      logAuditTrail({
         profile_id: 1,
         user_id: 1,
         action: req.method + ' ' + req.originalUrl + ' ' + result.status,
@@ -64,10 +68,15 @@ v1Router.get(
   '/api/users/edocprofile/:profileId',
   validateGetProfile,
   async (req: Request, res: Response, next: Function) => {
-    const options = {profileId: req.params.profileId};
+    const profileId = req.params.profileId;
+
     try {
-      const result = await v1.getEDocProfile(options);
-      res.status(result.status || 200).send(result.data);
+      const result = await v1.getEDocProfile({profileId});
+      if (result.status === 200) {
+        res.status(200).send(result.data);
+      } else {
+        res.status(result.status).send(result.data);
+      }
     } catch (err) {
       next(err);
     }
@@ -86,14 +95,15 @@ v1Router.patch(
   validateGetProfile,
   validateAndTransformPatchProfile,
   async (req: Request, res: Response, next: Function) => {
-    const options: Options = {
-      body: req.body,
-      profileId: req.params.profileId,
-    };
+    const profileId = req.params.profileId;
+    const profileData = req.body as components['schemas']['eDocProfile'];
     try {
-      const result = await v1.updateEDocProfile(options);
+      const result = await v1.updateEDocProfile({
+        profileId,
+        profileData,
+      });
       res.status(result.status || 204).send(result.data);
-    } catch (err: any) {
+    } catch (err) {
       next(err);
     }
   },
@@ -110,13 +120,19 @@ v1Router.delete(
   '/api/users/edocprofile/:profileId',
   validateDeleteProfile,
   async (req: Request, res: Response, next: Function) => {
-    const options: Options = {
-      profileId: req.params.profileId,
-      confirm: req.query.confirm === 'true',
-    };
+    const profileId = req.params.profileId;
+    const confirm = req.query.confirm === 'true'; // Confirm must be explicitly true
+
+    if (!confirm) {
+      // Handle the case where deletion is not confirmed
+      return res.status(400).json({
+        error: 'Confirmation required for deletion.',
+      });
+    }
+
     try {
-      const result = await v1.deleteEDocProfile(options);
-      res.status(result.status).send(result.data); //TODO: status doesn't work as expected
+      await v1.deleteEDocProfile({path: {profileId}, query: {confirm}});
+      res.status(204).send(); // As per the operations interface, no content is sent on successful deletion
     } catch (err) {
       next(err);
     }
@@ -146,7 +162,7 @@ v1Router.get(
       } else {
         throw new TransientError('No data found', 'NO_DATA');
       }
-    } catch (err: any) {
+    } catch (err) {
       logger.error(err);
       if (err instanceof ServerError) {
         res.status(err.status || 500).json(err.getErrorBodyJson());
@@ -215,7 +231,7 @@ v1Router.post(
     try {
       const result = await v1.loginUser(options);
       res.status(result.status || 200).send(result.data);
-    } catch (err: any) {
+    } catch (err) {
       next(err);
     }
   },
@@ -311,7 +327,7 @@ v1Router.get(
       } else {
         throw new TransientError('No data found', 'NO_DATA');
       }
-    } catch (err: any) {
+    } catch (err) {
       logger.error(err);
       if (err instanceof ServerError) {
         res.status(err.status || 500).json(err.getErrorBodyJson());
@@ -321,6 +337,7 @@ v1Router.get(
           'UNEXPECTED_ERROR',
         );
         res.status(err.status || 500).json(err.getErrorBodyJson());
+        next(err);
       }
     }
   },
@@ -427,7 +444,7 @@ v1Router.get(
 
       const result = await v1.getObjectMetadata(options);
       res.status(result.status).send(result.data);
-    } catch (err: any) {
+    } catch (err: Error | any) {
       if (err.message === 'Invalid acRecordObjectId format') {
         res.status(400).json({error: err.message});
       } else {
@@ -458,7 +475,7 @@ v1Router.patch(
     try {
       const result = await v1.updateObjectmetadata(options);
       res.status(result.status || 200).send(result.data);
-    } catch (err: any) {
+    } catch (err) {
       next(err);
     }
   },
@@ -502,6 +519,7 @@ v1Router.delete(
  */
 v1Router.get(
   '/api/catalog/:acnr/objects/:acRecordObjectId/data',
+  validateRetrieveMetaData,
   async (req: Request, res: Response, next: Function) => {
     const options = {
       acnr: req.params['acnr'],
@@ -533,17 +551,9 @@ v1Router.get(
 v1Router.put(
   '/api/catalog/:acnr/objects/:acRecordObjectId/data',
   upload.single('filedata'),
+  validateObjectPut,
   async (req: Request, res: Response, next: Function) => {
-    if (!req.file) {
-      return res.status(400).json({error: 'No file uploaded'});
-    }
-
-    if (!fs.existsSync(req.file.path)) {
-      return res.status(404).json({error: 'Uploaded file is missing'});
-    }
-
     const options = {
-      body: req.body,
       acnr: req.params.acnr,
       acRecordObjectId: req.params.acRecordObjectId,
       file: req.file,
@@ -552,7 +562,7 @@ v1Router.put(
     try {
       const result = await v1.uploadObjectData(options);
       res.status(result.status || 200).send(result.data);
-    } catch (err: any) {
+    } catch (err) {
       next(err);
     }
   },
@@ -563,6 +573,7 @@ v1Router.put(
  */
 v1Router.delete(
   '/api/catalog/:acnr/objects/:acRecordObjectId/data',
+  validateDeleteObject,
   async (req: Request, res: Response, next: Function) => {
     const options = {
       acnr: req.params['acnr'],
@@ -779,7 +790,7 @@ v1Router.get(
     try {
       const result = await v1.getWebAccessesStats(options);
       res.status(result.status || 200).send(result.data);
-    } catch (err: any) {
+    } catch (err) {
       next(err);
     }
   },

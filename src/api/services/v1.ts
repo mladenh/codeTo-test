@@ -3,6 +3,9 @@ import {
   ServerError,
   TransientError,
   RequestError,
+  handleDatabaseError,
+  ProfileNotFoundError,
+  ConfirmationRequiredError,
 } from '../../lib/error';
 import {logger} from '../../lib/logger';
 import {Options} from '../../lib/objects';
@@ -15,7 +18,18 @@ import fs from 'fs';
 import {getTypeCode} from '../../lib/typeHelpers';
 import {getProfileId} from '../../lib/getProfileId';
 import {hashPassword} from '../../lib/HashPassword';
-import {Connection} from 'mariadb';
+import {components, operations} from '../../../types';
+import mariadb from 'mariadb';
+import {
+  checkProfileExists,
+  fetchProfileAllowedTypes,
+  insertProfile,
+  insertProfileAllowedTypes,
+  checkProfileExistsAndGetId,
+  updateProfileInformation,
+  updateProfileAllowedTypes,
+  handleUpdateProfileError,
+} from '../../lib/profile';
 
 const SECRET_KEY = 'yourSecretKeyHere'; //TODO: Move this to an environment variable?
 
@@ -24,71 +38,21 @@ const SECRET_KEY = 'yourSecretKeyHere'; //TODO: Move this to an environment vari
  * @param {Options} options - The options object containing the profile data.
  * @returns {Promise<{status: number, data: any}>} The response object.
  */
-export async function createEDocProfile(
-  options: Options,
-): Promise<{data: any; status: number}> {
-  let conn: any;
+export async function createEDocProfile(options: {
+  body: components['schemas']['eDocProfileCreation'];
+}): Promise<{data: any; status: number}> {
+  //
+  let conn: mariadb.PoolConnection | null = null;
   try {
     conn = await pool.getConnection();
     await conn.beginTransaction();
 
-    //destructure the new profile data
-    const {
-      unique_profile_id,
-      isil,
-      project_code,
-      full_text_deposit,
-      subfield_m_code,
-      contact_emails,
-      profile_allowed_types,
-      is_active,
-    } = options.body;
-
-    //TODO: check if profile already exists
-
-    //insert new profile into edoc2.Profile table
-    const result = await conn.query(
-      `
-    INSERT INTO Profile (unique_profile_id, isil, project_code, full_text_deposit, subfield_m_code, contact_emails, is_active) \
-    VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        unique_profile_id,
-        isil,
-        project_code,
-        full_text_deposit,
-        subfield_m_code,
-        JSON.stringify(contact_emails),
-        is_active,
-      ],
-    );
-
-    //get the newly created profile id
-    const profileIdinserted = result.insertId.toString();
-    //convert from BigInt to int
-    const profileIdInt = parseInt(profileIdinserted);
-
-    //allowed types
-    const typeCodes = await Promise.all(
-      profile_allowed_types.map(async (type: string) => {
-        const typeResult = await conn.query(
-          'SELECT type_code FROM Edoc_Content_Types WHERE type_name = ?',
-          [type],
-        );
-        if (typeResult.length === 0) {
-          throw new PermanentError('Type not found', 'TYPE_NOT_FOUND');
-        }
-        return typeResult[0].type_code;
-      }),
-    );
-
-    await Promise.all(
-      typeCodes.map(async (typeCode) => {
-        await conn.query(
-          'INSERT INTO Profile_Allowed_Types (profile_id, type_code) \
-          VALUES (?, ?)',
-          [profileIdInt, typeCode],
-        );
-      }),
+    await checkProfileExists(conn, options.body.profileId);
+    const profileId = await insertProfile(conn, options.body);
+    await insertProfileAllowedTypes(
+      conn,
+      profileId,
+      options.body.profileAllowedTypes,
     );
 
     await conn.commit();
@@ -96,22 +60,14 @@ export async function createEDocProfile(
     return {
       status: 201,
       data: {
-        message: 'Profile created successfully.',
-        profileId: profileIdinserted,
+        ...options.body,
+        '865mCode': options.body['865mCode'],
+        isActive: options.body.isActive,
       },
     };
-  } catch (err: any) {
-    await conn.rollback();
-    if (err.code === 'ER_DUP_ENTRY') {
-      throw new PermanentError(
-        'Duplicate entry for profile',
-        'DUPLICATE_ENTRY',
-      );
-    } else if (err.message.includes('Type not found')) {
-      throw new PermanentError('Type not found', 'TYPE_NOT_FOUND');
-    } else {
-      throw new TransientError('Database error occurred', 'DATABASE_ERROR');
-    }
+  } catch (err: unknown) {
+    if (conn) await conn.rollback();
+    throw err; // Rethrow the error
   } finally {
     if (conn) conn.release();
   }
@@ -125,32 +81,20 @@ export async function createEDocProfile(
  * @returns {Promise<{status: number, data: any}>} - The result object with status and data.
  */
 export async function getEDocProfile(
-  options: Options,
-): Promise<{status: number; data: any}> {
+  options: operations['getEDocProfile']['parameters']['path'],
+): Promise<{status: number; data: components['schemas']['eDocProfile']}> {
   let conn;
   try {
-    if (!options.profileId) {
-      throw new RequestError('Profile ID is missing');
-    }
     conn = await pool.getConnection();
     const rows = await conn.query(
       'SELECT * FROM edoc2.Profile \
       WHERE unique_profile_id = ?',
       [options.profileId],
     );
-    //get profile allowed types
-    const profileAllowedTypes = await conn.query(
-      // eslint-disable-next-line max-len
-      'SELECT ect.type_name from Profile p \
-      LEFT JOIN Profile_Allowed_Types pat on p.Profile_id = pat.profile_id \
-      LEFT JOIN Edoc_Content_Types ect on pat.type_code = ect.type_code \
-      WHERE p.unique_profile_id = ?',
-      [options.profileId],
-    );
 
     if (rows.length > 0) {
       const profile = rows[0];
-      const responseData = {
+      const responseData: components['schemas']['eDocProfile'] = {
         profileId: profile.unique_profile_id,
         isil: profile.isil,
         projectCode: profile.project_code,
@@ -159,16 +103,23 @@ export async function getEDocProfile(
         contactEmails: profile.contact_emails
           ? JSON.parse(profile.contact_emails)
           : [],
-        profileAllowedTypes: profileAllowedTypes.map(
-          (type: any) => type.type_name,
-        ), // Convert to array
+        profileAllowedTypes: (await fetchProfileAllowedTypes(
+          conn,
+          profile.profile_id,
+        )) as (
+          | 'Inhaltsverzeichnis'
+          | 'Klappentext'
+          | 'Volltext'
+          | 'Umschlagbild'
+          | 'Bild'
+        )[],
         isActive: !!profile.is_active,
       };
       return {status: 200, data: responseData};
     } else {
-      throw new PermanentError('Profile not found', 'NOT_FOUND');
+      throw new ProfileNotFoundError(options.profileId);
     }
-  } catch (err: any) {
+  } catch (err) {
     if (err instanceof ServerError) {
       throw err;
     } else {
@@ -187,126 +138,35 @@ export async function getEDocProfile(
  * @param {Options} options - Contains the profileId and update data in the body.
  * @returns {Promise<{status: number, data: any}>}
  */
-export async function updateEDocProfile(
-  options: Options,
-): Promise<{status: number; data: any}> {
+export async function updateEDocProfile(options: {
+  profileId: components['parameters']['profileId'];
+  profileData: components['schemas']['eDocProfile'];
+}): Promise<{status: number; data: any}> {
   let conn;
   try {
     conn = await pool.getConnection();
     await conn.beginTransaction();
 
-    const {profileId, body: updateData} = options;
+    const {profileId, profileData} = options;
 
-    //fetch profileId using unique_profile_id
+    const profileAllowedTypes = profileData.profileAllowedTypes; // Capture allowed types before any modification
+    delete profileData.profileAllowedTypes; // Remove from the main update object
 
-    let rows;
-    try {
-      [rows] = await conn.query(
-        'SELECT profile_id FROM edoc2.Profile WHERE unique_profile_id = ?',
-        [profileId],
-      );
-      if (!rows || rows.length === 0) {
-        throw new PermanentError(
-          'The profile to update does not exist.',
-          'PROFILE_NOT_FOUND',
-        );
-      }
-    } catch (err: any) {
-      logger.error(`Database query failed: ${err.message}`);
-      throw new TransientError(
-        'Database error occurred while fetching profile ID.',
-        'DATABASE_ERROR',
-      );
-    }
-    const profile_Id = rows.profile_id;
+    // Check for profile existence and get internal profile_id
+    const profile_Id = await checkProfileExistsAndGetId(conn, profileId);
 
-    const profileAllowedTypes = updateData.profile_allowed_types;
+    // Update profile information
+    await updateProfileInformation(conn, profile_Id, profileData);
 
-    // Remove allowed types from updateData if present to handle separately
+    // Handle allowed types if provided
     if (profileAllowedTypes) {
-      delete updateData.profileAllowedTypes;
+      await updateProfileAllowedTypes(conn, profile_Id, profileAllowedTypes);
     }
-
-    // Check if necessary data is provided
-    if (
-      !profileId ||
-      (Object.keys(updateData).length === 0 && !profileAllowedTypes)
-    ) {
-      throw new RequestError('Missing profile ID or update data.');
-    }
-
-    // Filter updateData to ensure only columns existing in the Profile table are updated
-    // eslint-disable-next-line max-len
-    const allowedUpdateFields = [
-      'isil',
-      'project_code',
-      'full_text_deposit',
-      'subfield_m_code',
-      'contact_emails',
-      'is_active',
-    ];
-    const filteredUpdateData = Object.keys(updateData)
-      .filter(
-        (key) =>
-          allowedUpdateFields.includes(key) && updateData[key] !== undefined,
-      )
-      .reduce((obj: any, key) => {
-        obj[key] = updateData[key];
-        return obj;
-      }, {});
-
-    // Build SQL query dynamically
-    if (Object.keys(filteredUpdateData).length > 0) {
-      const fieldsToUpdate = Object.keys(filteredUpdateData)
-        .map((field) => `${field} = ?`)
-        .join(', ');
-      const values = [...Object.values(filteredUpdateData), profileId];
-
-      const query = `UPDATE edoc2.Profile SET ${fieldsToUpdate} \
-                    WHERE unique_profile_id = ?`;
-      const queryResult = await conn.query(query, values);
-
-      if (queryResult.affectedRows === 0) {
-        throw new PermanentError(
-          'The profile to update does not exist.',
-          'PROFILE_NOT_FOUND',
-        );
-      }
-    }
-
-    // Handle profileAllowedTypes if present
-    if (profileAllowedTypes && profileAllowedTypes.length > 0) {
-      // First, clear existing entries
-      await conn.query(
-        'DELETE FROM Profile_Allowed_Types \
-        WHERE profile_id = ?',
-        [profile_Id],
-      );
-
-      // Insert new entries
-      for (const type of profileAllowedTypes) {
-        const typeCode = await getTypeCode(type); // Get the type code
-        await conn.query(
-          'INSERT INTO Profile_Allowed_Types (profile_id, type_code) \
-          VALUES (?, ?)',
-          [profile_Id, typeCode],
-        );
-      }
-    }
-
     await conn.commit();
-    return {status: 200, data: {message: 'Profile updated successfully.'}};
-  } catch (err: any) {
-    await conn!.rollback();
-    logger.error(`Error updating profile: ${err.message}`);
-    if (err instanceof RequestError || err instanceof PermanentError) {
-      throw err;
-    } else {
-      throw new TransientError(
-        'Database error during profile update.',
-        'DATABASE_ERROR',
-      );
-    }
+    return {status: 204, data: {message: 'Profile updated successfully.'}};
+  } catch (err) {
+    if (conn) await conn.rollback();
+    throw handleUpdateProfileError(err);
   } finally {
     if (conn) await conn.release();
   }
@@ -320,65 +180,57 @@ export async function updateEDocProfile(
  * @returns {Promise<{status: number, data: any}>}
  */
 export async function deleteEDocProfile(
-  options: Options,
-): Promise<{status: number; data: any}> {
-  // Check if the necessary data is provided
-
-  if (!options.confirm) {
-    throw new PermanentError(
-      'Deletion must be confirmed',
-      'CONFIRMATION_REQUIRED',
-    );
-  }
-
+  options: operations['deleteEDocProfile']['parameters'],
+): Promise<{data: any; status: number}> {
   let conn;
   try {
     conn = await pool.getConnection();
-    await conn.beginTransaction(); // Start transaction
+    await conn.beginTransaction();
 
-    const profileId = options.profileId;
+    const profileId = options.path.profileId;
 
-    if (!profileId) {
-      throw new RequestError('ProfileId is missing');
+    // Verify that deletion is confirmed if required by business logic
+    if (!options.query.confirm) {
+      throw new ConfirmationRequiredError();
     }
-
-    // delete related entries from Profile_Allowed_Types
+    // Attempt to delete related entries safely with a subquery
     await conn.query(
-      'DELETE FROM edoc2.Profile_Allowed_Types \
-      WHERE profile_id = (SELECT profile_id FROM Profile WHERE unique_profile_id = ?)',
+      'DELETE FROM edoc2.Profile_Allowed_Types WHERE profile_id IN (SELECT profile_id FROM Profile WHERE unique_profile_id = ?)',
       [profileId],
     );
 
+    // Delete the main profile entry
     const queryResult = await conn.query(
       'DELETE FROM edoc2.Profile WHERE unique_profile_id = ?',
       [profileId],
     );
 
     if (queryResult.affectedRows === 0) {
-      await conn.rollback(); // Rollback transaction
-      throw new PermanentError(
-        'The profile does not exist.',
-        'PROFILE_NOT_FOUND',
-      );
+      await conn.rollback();
+      throw new ProfileNotFoundError(profileId);
     }
-    await conn.commit(); // Commit transaction
-    // Successfully deleted, no content to return
-    return {status: 204, data: {message: 'Profile deleted successfully.'}};
+
+    await conn.commit();
+    return {status: 204, data: {message: 'Profile deleted successfully.'}}; // No content to return on successful deletion
   } catch (err) {
-    await conn!.rollback();
-    logger.error(err);
-    if (err instanceof PermanentError || err instanceof RequestError) {
+    if (conn) await conn.rollback();
+
+    if (err instanceof ProfileNotFoundError || err instanceof ServerError) {
       throw err;
     }
-    console.error('Error deleting profile:', err);
+
+    logger.error('Error deleting profile:', err);
     throw new TransientError(
-      'Failed to delete the profile due to server error.',
-      'SERVER_ERROR',
+      'An unexpected error occurred while deleting profile',
+      'UNEXPECTED_ERROR',
     );
   } finally {
-    if (conn) await conn.release();
+    if (conn) {
+      conn.release();
+    }
   }
 }
+
 
 /**
  * Retrieves a list of eDoc profiles based on provided search criteria.
@@ -387,12 +239,12 @@ export async function deleteEDocProfile(
  * @returns {Promise<{status: number, data: any}>}
  */
 export async function listEDocProfiles(
-  options: Options,
-): Promise<{status: number; data: any}> {
+  options: components['parameters']['searchProfileQuery'],
+// eslint-disable-next-line max-len
+): Promise<operations['listEDocProfiles']['responses'][200] | operations['listEDocProfiles']['responses'][400] | operations['listEDocProfiles']['responses'][500]>{
   let conn;
   try {
     conn = await pool.getConnection();
-    const queryData: any = options.query;
 
     const sqlSelect = `
       SELECT p.unique_profile_id, p.isil, p.project_code, p.full_text_deposit, 
@@ -411,7 +263,7 @@ export async function listEDocProfiles(
     const whereConditions: string[] = [];
 
     // Build the WHERE clause based on provided filters
-    Object.keys(queryData).forEach((key) => {
+    Object.keys(options.query).forEach((key) => {
       if (key === 'profile_allowed_types' && queryData[key].length > 0) {
         const placeholders = queryData[key].map(() => '?').join(',');
         whereConditions.push(`ect.type_name IN (${placeholders})`);
@@ -1397,13 +1249,8 @@ export async function uploadObjectData(options: Options) {
   try {
     conn = await pool.getConnection();
     const {acnr, acRecordObjectId, file} = options;
-
     if (!file) {
-      return {status: 400, data: 'No file provided'};
-    }
-
-    if (!file.path || !file.filename) {
-      return {status: 400, data: 'Incomplete file data'};
+      throw new Error('File is undefined');
     }
 
     const {type, sequence, isNumericType} = decomposeObjectID(
@@ -1425,19 +1272,14 @@ export async function uploadObjectData(options: Options) {
     const checkResult = await conn.query(checkQuery, queryParams);
 
     if (checkResult.length === 0) {
-      return {status: 404, data: 'Object not found'};
+      throw new PermanentError('Object not found', 'OBJECT_NOT_FOUND');
     }
     //modification to extract only the part of file path
     const relativeFilePath = `/${path.basename(file.path)}`;
 
-    const updateQuery = `
-    UPDATE Edoc_Content SET
-      file_path = ?,
-      size = ?,
-      update_date = NOW(),
-      file_name = ?
-    WHERE ac_number = ? AND sequence_number = ? AND object_type = ?;
-  `;
+    const updateQuery =
+      // eslint-disable-next-line max-len
+      'UPDATE Edoc_Content SET file_path = ?, size = ?, update_date = NOW(), file_name = ? WHERE ac_number = ? AND sequence_number = ? AND object_type = ?';
     await conn.query(updateQuery, [
       relativeFilePath,
       file.size,
@@ -1446,11 +1288,20 @@ export async function uploadObjectData(options: Options) {
       sequence,
       type,
     ]);
-
+    await conn.commit();
     return {status: 200, data: 'File updated successfully'};
   } catch (err) {
+    if (conn) {
+      await conn.rollback();
+    }
     logger.error(`Error uploading object data: ${err}`);
-    return {status: 500, data: 'Internal server error'};
+    if (err instanceof ServerError || err instanceof PermanentError) {
+      throw err;
+    }
+    throw new TransientError(
+      'Internal server error during file upload',
+      'UPDATE_FAIL',
+    );
   } finally {
     if (conn) conn.release();
   }
@@ -1465,9 +1316,6 @@ export async function uploadObjectData(options: Options) {
  * @return {Promise}
  */
 export async function deleteObjectData(options: Options) {
-  if (!options.confirm) {
-    return {status: 400, data: 'Deletion must be confirmed'};
-  }
   let conn;
 
   try {

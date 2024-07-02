@@ -10,7 +10,7 @@ export class ServerError extends Error {
    * @param {string} code Application Error Code
    * @param {number} status HTTP Status Code
    */
-  constructor(message: string, code: string, status = 400) {
+  constructor(message: string, code: string, status = 500) {
     super(message);
     this.code = code;
     this.status = status;
@@ -52,8 +52,8 @@ export class PermanentError extends ServerError {
    * @param {string} message Error Message
    * @param {string} code application error code
    */
-  constructor(message: string, code: string) {
-    super(message, code, 400);
+  constructor(message: string, code: string, status = 400) {
+    super(message, code, status);
   }
 }
 
@@ -66,23 +66,62 @@ export class RequestError extends PermanentError {
    * @param {string} message Error text to be displayed
    */
   constructor(message = '-') {
-    super(`invalid request to ${message}`, 'SERVICE001');
+    super(`invalid request to ${message}`, 'INVALID_REQUEST', 400);
+  }
+}
+
+// Specific error for duplicate profile entries
+/**
+ *
+ */
+export class DuplicateProfileError extends PermanentError {
+  /**
+   *
+   */
+  constructor() {
+    super('Profile already exists.', 'PROFILE_EXISTS', 409); // Using 409 Conflict might be more appropriate here
+  }
+}
+
+// Specific error for resource not found
+/**
+ *
+ */
+export class ProfileNotFoundError extends PermanentError {
+  /**
+   *
+   */
+  constructor(profileId: string) {
+    super(`Profile with ID ${profileId} not found.`, 'PROFILE_NOT_FOUND', 404);
   }
 }
 
 /**
  *
  */
-export class ProfileNotFoundError extends Error {
+export function handleDatabaseError(error: any): never {
+  switch (error.code) {
+    case 'ER_DUP_ENTRY':
+      throw new PermanentError(
+        'Duplicate entry for profile',
+        'DUPLICATE_ENTRY',
+      );
+    case 'TYPE_NOT_FOUND':
+      throw new PermanentError('Type not found', 'TYPE_NOT_FOUND', 404);
+    default:
+      throw new TransientError('Database error occurred', 'DATABASE_ERROR');
+  }
+}
+
+/**
+ *
+ */
+export class ConfirmationRequiredError extends Error {
   /**
    *
    */
-  constructor(message: string) {
+  constructor(message = 'Confirmation required for deletion.') {
     super(message);
-    this.name = 'ProfileNotFoundError';
-    // Maintain proper stack trace for where our error was thrown
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ProfileNotFoundError);
-    }
+    this.name = 'ConfirmationRequiredError';
   }
 }

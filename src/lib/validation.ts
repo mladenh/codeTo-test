@@ -1,4 +1,4 @@
-import Joi, {date} from 'joi';
+import Joi from 'joi';
 
 // Define valid types for profileAllowedTypes
 const VALID_TYPES = [
@@ -159,7 +159,7 @@ export const validateUserListQuery = (queryParams: any) => {
 
 const objectCreationSchema = Joi.object({
   acnr: Joi.string()
-    .pattern(/^AC[0-9]{8}$/)
+    .pattern(/^AC\d{8}$/)
     .required(),
   profile: Joi.string().required(),
   sequence: Joi.string(),
@@ -183,7 +183,7 @@ export const validateObjectCreation = (data: any) => {
 
 const searchObjectsSchema = Joi.object({
   acnr: Joi.string()
-    .pattern(/^AC[0-9]{8}$/)
+    .pattern(/^AC\d{8}$/)
     .optional(),
   isil: Joi.string().optional(),
   profile: Joi.string().optional(),
@@ -216,7 +216,7 @@ export const validateSearchObjects = (data: any) => {
 
 export const objectsDeleteSchema = Joi.object({
   acnr: Joi.string()
-    .pattern(/^AC[0-9]{8}$/)
+    .pattern(/^AC\d{8}$/)
     .required()
     .description('The ACNR identifier for the objects'),
   confirm: Joi.boolean().required().description('Confirm the deletion'),
@@ -228,7 +228,7 @@ export const validateObjectsDelete = (data: any) => {
 
 export const validateMetaDataRetrievePathParameters = Joi.object({
   acnr: Joi.string()
-    .pattern(/^AC[0-9]{8}$/)
+    .pattern(/^AC\d{8}$/)
     .required()
     .description('The ACNR identifier for the objects'),
   acRecordObjectId: Joi.string()
@@ -259,7 +259,7 @@ export const validateAndTransformMetaDataPatch = (objectDetails: any) => {
 
 export const validateMetaDataObjectdelete = Joi.object({
   acnr: Joi.string()
-    .pattern(/^AC[0-9]{8}$/)
+    .pattern(/^AC\d{8}$/)
     .required()
     .description('The ACNR identifier for the objects'),
   acRecordObjectId: Joi.string()
@@ -270,4 +270,28 @@ export const validateMetaDataObjectdelete = Joi.object({
 
 export const validateObjectDelete = (data: any) => {
   return validateMetaDataObjectdelete.validate(data, {abortEarly: false});
+};
+
+export const putObjectSchema = Joi.object({
+  acnr: Joi.string()
+    .pattern(/^AC\d{8}$/)
+    .required()
+    .description('The ACNR identifier for the objects'),
+  acRecordObjectId: Joi.string()
+    .required()
+    .description('The AC Record Object ID'),
+  file: Joi.object({
+    path: Joi.string().required(),
+    originalname: Joi.string().required(),
+    fieldname: Joi.string(), // Multer adds this
+    encoding: Joi.string(), // Multer adds this
+    mimetype: Joi.string(), // Multer adds this
+    destination: Joi.string(), // Multer adds this
+    filename: Joi.string(), // Multer adds this
+    size: Joi.number().required(), // Multer adds this
+  }).required(),
+});
+
+export const validatePutObject = (data: any) => {
+  return putObjectSchema.validate(data, {abortEarly: false});
 };

@@ -1,3 +1,4 @@
+import fs from 'fs';
 import {Request, Response, NextFunction} from 'express';
 import {mapRequestDataToDbFields} from './fieldMappings';
 import {
@@ -17,8 +18,10 @@ import {
   validateMetaDataRetrieve,
   validateAndTransformMetaDataPatch,
   validateObjectDelete,
+  validatePutObject,
 } from './validation';
 import {RequestError} from './error';
+
 /**
  * Middleware to validate and transform eDoc profile request data.
  */
@@ -32,9 +35,6 @@ export async function validateAndTransformEDocProfile(
     const error = new RequestError(validation.error.details[0].message);
     return res.status(error.status).json(error.getErrorBodyJson());
   }
-
-  // Transform the request data from camelCase/API format to snake_case/DB format
-  req.body = mapRequestDataToDbFields(req.body);
   next();
 }
 
@@ -71,9 +71,6 @@ export async function validateAndTransformPatchProfile(
     const error = new RequestError(validation.error.details[0].message);
     return res.status(error.status).json(error.getErrorBodyJson());
   }
-
-  // Transform the request data from camelCase/API format to snake_case/DB format
-  req.body = mapRequestDataToDbFields(req.body);
   next();
 }
 
@@ -356,6 +353,36 @@ export async function validateDeleteObject(
     acnr: req.params.acnr,
     acRecordObjectId: req.params.acRecordObjectId,
     confirm: req.query.confirm, // Use req.query here
+  });
+  if (validation.error) {
+    const error = new RequestError(validation.error.details[0].message);
+    return res.status(error.status).json(error.getErrorBodyJson());
+  }
+  next();
+}
+
+/**
+ *
+ */
+export async function validateObjectPut(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (!req.file) {
+    next(new RequestError('No file uploaded'));
+    return;
+  }
+
+  if (!fs.existsSync(req.file.path)) {
+    next(new RequestError('Uploaded file is missing on the server'));
+    return;
+  }
+
+  const validation = validatePutObject({
+    acnr: req.params.acnr,
+    acRecordObjectId: req.params.acRecordObjectId,
+    file: req.file,
   });
   if (validation.error) {
     const error = new RequestError(validation.error.details[0].message);
