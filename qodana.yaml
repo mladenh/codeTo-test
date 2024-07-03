@@ -16,7 +16,6 @@ include:
   - name: DuplicatedCode
   - name: JSAnnotator
   - name: InconsistentLineSeparators
-  - name: IncorrectFormatting
   - name: InjectedReferences
   - name: JSMethodCanBeStatic
   - name: ES6ShorthandObjectProperty

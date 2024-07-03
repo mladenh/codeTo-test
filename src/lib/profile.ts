@@ -241,3 +241,66 @@ export function handleUpdateProfileError(err: any): Error {
     'DATABASE_ERROR',
   );
 }
+
+/**
+ * Builds a SQL query based on the provided query data.
+ *
+ * @param {any} queryData - The data used to build the SQL query.
+ * @return {{query: string, params: any[]}} - An object containing the SQL query and the parameters.
+ */
+export function buildSqlForProfileQuery(queryData: any) {
+  const sqlSelect = `
+    SELECT p.unique_profile_id, p.isil, p.project_code, p.full_text_deposit,
+           p.subfield_m_code, p.contact_emails, p.is_active,
+           GROUP_CONCAT(DISTINCT ect.type_name SEPARATOR ', ') AS profileAllowedTypes
+  `;
+  const sqlFrom = 'FROM edoc2.Profile p';
+  const sqlJoin = `
+    LEFT JOIN Profile_Allowed_Types pat ON p.profile_id = pat.profile_id
+    LEFT JOIN Edoc_Content_Types ect ON pat.type_code = ect.type_code
+  `;
+  const sqlGroupBy = 'GROUP BY p.profile_id';
+
+  let sqlWhere = '';
+  const params: any[] = [];
+  const whereConditions: string[] = [];
+
+  Object.keys(queryData).forEach((key) => {
+    if (key === 'profile_allowed_types' && queryData[key].length > 0) {
+      const placeholders = queryData[key].map(() => '?').join(',');
+      whereConditions.push(`ect.type_name IN (${placeholders})`);
+      params.push(...queryData[key]);
+    } else if (key !== 'profile_allowed_types') {
+      whereConditions.push(`p.${key} = ?`);
+      params.push(queryData[key]);
+    }
+  });
+
+  if (whereConditions.length > 0) {
+    sqlWhere = ' WHERE ' + whereConditions.join(' AND ');
+  }
+
+  const sqlQuery = `${sqlSelect} ${sqlFrom} ${sqlJoin} ${sqlWhere} ${sqlGroupBy}`;
+  return {query: sqlQuery, params: params};
+}
+
+/**
+ * Formats the query results by mapping each row to an object with specific properties.
+ *
+ * @param {any[]} rows - The array of rows returned from the query.
+ * @return {object[]} An array of objects with the formatted properties.
+ */
+export function formatProfileQueryResults(rows: any[]) {
+  return rows.map((row: any) => ({
+    profileId: row.unique_profile_id,
+    isil: row.isil,
+    projectCode: row.project_code,
+    fullTextDeposit: row.full_text_deposit === 1,
+    '865mCode': row.subfield_m_code,
+    contactEmails: row.contact_emails ? JSON.parse(row.contact_emails) : [],
+    profileAllowedTypes: row.profileAllowedTypes
+      ? row.profileAllowedTypes.split(', ')
+      : [],
+    isActive: row.is_active === 1,
+  }));
+}

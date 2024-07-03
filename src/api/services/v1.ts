@@ -29,6 +29,8 @@ import {
   updateProfileInformation,
   updateProfileAllowedTypes,
   handleUpdateProfileError,
+  buildSqlForProfileQuery,
+  formatProfileQueryResults,
 } from '../../lib/profile';
 
 const SECRET_KEY = 'yourSecretKeyHere'; //TODO: Move this to an environment variable?
@@ -231,69 +233,24 @@ export async function deleteEDocProfile(
   }
 }
 
-
 /**
- * Retrieves a list of eDoc profiles based on provided search criteria.
- * @param {Options} options - Contains the filter for the query.
- * @param {String} options.eDocprofileQuery Filters the list of eDoc profiles based on the provided search criteria.
- * @returns {Promise<{status: number, data: any}>}
+ * Retrieves a list of eDoc profiles based on the provided query parameters.
+ *
+ * @param {operations['listEDocProfiles']['parameters']} options - Contains the query parameters for listing eDoc profiles.
+ * @return {Promise<{status: number; data: any}>} Returns the status and formatted results of the eDoc profiles.
  */
 export async function listEDocProfiles(
-  options: components['parameters']['searchProfileQuery'],
-// eslint-disable-next-line max-len
-): Promise<operations['listEDocProfiles']['responses'][200] | operations['listEDocProfiles']['responses'][400] | operations['listEDocProfiles']['responses'][500]>{
+  options: operations['listEDocProfiles']['parameters'],
+): Promise<{status: number; data: any}> {
   let conn;
   try {
     conn = await pool.getConnection();
+    const queryData: any = options.query?.query;
 
-    const sqlSelect = `
-      SELECT p.unique_profile_id, p.isil, p.project_code, p.full_text_deposit, 
-             p.subfield_m_code, p.contact_emails, p.is_active, 
-             GROUP_CONCAT(DISTINCT ect.type_name SEPARATOR ', ') AS profileAllowedTypes
-    `;
-    const sqlFrom = 'FROM edoc2.Profile p';
-    const sqlJoin = `
-      LEFT JOIN Profile_Allowed_Types pat ON p.profile_id = pat.profile_id 
-      LEFT JOIN Edoc_Content_Types ect ON pat.type_code = ect.type_code
-    `;
-    const sqlGroupBy = 'GROUP BY p.profile_id';
+    const sqlQuery = buildSqlForProfileQuery(queryData);
+    const rows = await conn.query(sqlQuery.query, sqlQuery.params);
 
-    let sqlWhere = '';
-    const params: any = [];
-    const whereConditions: string[] = [];
-
-    // Build the WHERE clause based on provided filters
-    Object.keys(options.query).forEach((key) => {
-      if (key === 'profile_allowed_types' && queryData[key].length > 0) {
-        const placeholders = queryData[key].map(() => '?').join(',');
-        whereConditions.push(`ect.type_name IN (${placeholders})`);
-        params.push(...queryData[key]);
-      } else if (key !== 'profile_allowed_types') {
-        whereConditions.push(`p.${key} = ?`);
-        params.push(queryData[key]);
-      }
-    });
-
-    if (whereConditions.length > 0) {
-      sqlWhere = ' WHERE ' + whereConditions.join(' AND ');
-    }
-
-    const sqlQuery = `${sqlSelect} ${sqlFrom} ${sqlJoin} ${sqlWhere} ${sqlGroupBy}`;
-
-    const rows = await conn.query(sqlQuery, params);
-
-    const formattedResults = rows.map((row: any) => ({
-      profileId: row.unique_profile_id,
-      isil: row.isil,
-      projectCode: row.project_code,
-      fullTextDeposit: row.full_text_deposit === 1,
-      '865mCode': row.subfield_m_code,
-      contactEmails: row.contact_emails ? JSON.parse(row.contact_emails) : [],
-      profileAllowedTypes: row.profileAllowedTypes
-        ? row.profileAllowedTypes.split(', ')
-        : [],
-      isActive: row.is_active === 1,
-    }));
+    const formattedResults = formatProfileQueryResults(rows);
 
     return {status: 200, data: formattedResults};
   } catch (err) {

@@ -156,11 +156,16 @@ v1Router.get(
   validateAndTransformEDocProfileListQuery,
   async (req: Request, res: Response, next: Function) => {
     try {
-      const result = await v1.listEDocProfiles({query: req.query});
-      if (result.data) {
+      const searchQuery = req.query;
+
+      const result = await v1.listEDocProfiles({
+        query: {query: searchQuery},
+      });
+      if (result.status === 200 && result.data.length > 0) {
         res.status(result.status || 200).send(result.data);
       } else {
-        throw new TransientError('No data found', 'NO_DATA');
+        return res.status(404).json({error: 'No data found'});
+
       }
     } catch (err) {
       logger.error(err);
@@ -276,7 +281,7 @@ v1Router.delete(
       const result = await v1.deleteUser(options);
       res.status(result.status).send(result.data);
     } catch (err) {
-      next(err);
+      return next(err);
     }
   },
 );
@@ -384,7 +389,7 @@ v1Router.get(
       if (result.data) {
         res.status(result.status || 200).send(result.data);
       } else {
-        throw new TransientError('No data found', 'NO_DATA');
+        return res.status(404).json({error: 'No data found'});
       }
     } catch (err: any) {
       logger.error(err);
